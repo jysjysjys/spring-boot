@@ -160,7 +160,7 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 		StringBuilder errors = new StringBuilder();
 		for (Status status : statuses) {
 			if (status.getLevel() == Status.ERROR) {
-				errors.append(errors.length() > 0 ? String.format("%n") : "");
+				errors.append((errors.length() > 0) ? String.format("%n") : "");
 				errors.append(status.toString());
 			}
 		}
@@ -198,7 +198,7 @@ public class LogbackLoggingSystem extends Slf4JLoggingSystem {
 		}
 		java.util.logging.Logger rootLogger = LogManager.getLogManager().getLogger("");
 		Handler[] handlers = rootLogger.getHandlers();
-		return handlers.length == 1 && SLF4JBridgeHandler.class.isInstance(handlers[0]);
+		return handlers.length == 1 && handlers[0] instanceof SLF4JBridgeHandler;
 	}
 
 	private void addLevelChangePropagator(LoggerContext loggerContext) {

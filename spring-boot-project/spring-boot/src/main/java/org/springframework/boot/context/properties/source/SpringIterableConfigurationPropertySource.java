@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ class SpringIterableConfigurationPropertySource extends SpringConfigurationPrope
 
 	private List<ConfigurationPropertyName> getConfigurationPropertyNames() {
 		Cache cache = getCache();
-		List<ConfigurationPropertyName> names = (cache != null ? cache.getNames() : null);
+		List<ConfigurationPropertyName> names = (cache != null) ? cache.getNames() : null;
 		if (names != null) {
 			return names;
 		}
@@ -112,7 +112,7 @@ class SpringIterableConfigurationPropertySource extends SpringConfigurationPrope
 	}
 
 	private PropertyMapping[] getPropertyMappings(Cache cache) {
-		PropertyMapping[] result = (cache != null ? cache.getMappings() : null);
+		PropertyMapping[] result = (cache != null) ? cache.getMappings() : null;
 		if (result != null) {
 			return result;
 		}
@@ -132,9 +132,6 @@ class SpringIterableConfigurationPropertySource extends SpringConfigurationPrope
 
 	private Cache getCache() {
 		CacheKey cacheKey = CacheKey.get(getPropertySource());
-		if (cacheKey == null) {
-			return null;
-		}
 		if (ObjectUtils.nullSafeEquals(cacheKey, this.cacheKey)) {
 			return this.cache;
 		}
@@ -192,11 +189,6 @@ class SpringIterableConfigurationPropertySource extends SpringConfigurationPrope
 		}
 
 		@Override
-		public int hashCode() {
-			return this.key.hashCode();
-		}
-
-		@Override
 		public boolean equals(Object obj) {
 			if (this == obj) {
 				return true;
@@ -205,6 +197,11 @@ class SpringIterableConfigurationPropertySource extends SpringConfigurationPrope
 				return false;
 			}
 			return ObjectUtils.nullSafeEquals(this.key, ((CacheKey) obj).key);
+		}
+
+		@Override
+		public int hashCode() {
+			return this.key.hashCode();
 		}
 
 		public static CacheKey get(EnumerablePropertySource<?> source) {

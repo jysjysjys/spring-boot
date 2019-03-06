@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ import org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver;
 import org.springframework.boot.actuate.endpoint.web.EndpointMapping;
 import org.springframework.boot.actuate.endpoint.web.EndpointMediaTypes;
 import org.springframework.boot.actuate.endpoint.web.ExposableWebEndpoint;
-import org.springframework.boot.actuate.endpoint.web.PathMapper;
 import org.springframework.boot.actuate.endpoint.web.annotation.ControllerEndpointsSupplier;
 import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.boot.actuate.health.ReactiveHealthEndpointWebExtension;
@@ -73,12 +72,6 @@ import org.springframework.web.server.WebFilter;
 @ConditionalOnCloudPlatform(CloudPlatform.CLOUD_FOUNDRY)
 public class ReactiveCloudFoundryActuatorAutoConfiguration {
 
-	private final ApplicationContext applicationContext;
-
-	ReactiveCloudFoundryActuatorAutoConfiguration(ApplicationContext applicationContext) {
-		this.applicationContext = applicationContext;
-	}
-
 	@Bean
 	@ConditionalOnMissingBean
 	@ConditionalOnEnabledEndpoint
@@ -93,13 +86,13 @@ public class ReactiveCloudFoundryActuatorAutoConfiguration {
 	public CloudFoundryWebFluxEndpointHandlerMapping cloudFoundryWebFluxEndpointHandlerMapping(
 			ParameterValueMapper parameterMapper, EndpointMediaTypes endpointMediaTypes,
 			WebClient.Builder webClientBuilder,
-			ControllerEndpointsSupplier controllerEndpointsSupplier) {
+			ControllerEndpointsSupplier controllerEndpointsSupplier,
+			ApplicationContext applicationContext) {
 		CloudFoundryWebEndpointDiscoverer endpointDiscoverer = new CloudFoundryWebEndpointDiscoverer(
-				this.applicationContext, parameterMapper, endpointMediaTypes,
-				PathMapper.useEndpointId(), Collections.emptyList(),
-				Collections.emptyList());
+				applicationContext, parameterMapper, endpointMediaTypes, null,
+				Collections.emptyList(), Collections.emptyList());
 		CloudFoundrySecurityInterceptor securityInterceptor = getSecurityInterceptor(
-				webClientBuilder, this.applicationContext.getEnvironment());
+				webClientBuilder, applicationContext.getEnvironment());
 		Collection<ExposableWebEndpoint> webEndpoints = endpointDiscoverer.getEndpoints();
 		List<ExposableEndpoint<?>> allEndpoints = new ArrayList<>();
 		allEndpoints.addAll(webEndpoints);
@@ -126,8 +119,8 @@ public class ReactiveCloudFoundryActuatorAutoConfiguration {
 		String cloudControllerUrl = environment.getProperty("vcap.application.cf_api");
 		boolean skipSslValidation = environment.getProperty(
 				"management.cloudfoundry.skip-ssl-validation", Boolean.class, false);
-		return (cloudControllerUrl != null ? new ReactiveCloudFoundrySecurityService(
-				webClientBuilder, cloudControllerUrl, skipSslValidation) : null);
+		return (cloudControllerUrl != null) ? new ReactiveCloudFoundrySecurityService(
+				webClientBuilder, cloudControllerUrl, skipSslValidation) : null;
 	}
 
 	private CorsConfiguration getCorsConfiguration() {

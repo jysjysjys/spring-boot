@@ -136,11 +136,7 @@ public class ConfigurationMetadata {
 	}
 
 	private <K, V> void add(Map<K, List<V>> map, K key, V value) {
-		List<V> values = map.get(key);
-		if (values == null) {
-			values = new ArrayList<>();
-			map.put(key, values);
-		}
+		List<V> values = map.computeIfAbsent(key, (k) -> new ArrayList<>());
 		values.add(value);
 	}
 
@@ -174,9 +170,9 @@ public class ConfigurationMetadata {
 	}
 
 	public static String nestedPrefix(String prefix, String name) {
-		String nestedPrefix = (prefix != null ? prefix : "");
+		String nestedPrefix = (prefix != null) ? prefix : "";
 		String dashedName = toDashedCase(name);
-		nestedPrefix += ("".equals(nestedPrefix) ? dashedName : "." + dashedName);
+		nestedPrefix += "".equals(nestedPrefix) ? dashedName : "." + dashedName;
 		return nestedPrefix;
 	}
 

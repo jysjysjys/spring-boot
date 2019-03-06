@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 package org.springframework.boot.autoconfigure.transaction;
 
-import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
@@ -55,25 +55,20 @@ public class TransactionAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean
 	public TransactionManagerCustomizers platformTransactionManagerCustomizers(
-			ObjectProvider<List<PlatformTransactionManagerCustomizer<?>>> customizers) {
-		return new TransactionManagerCustomizers(customizers.getIfAvailable());
+			ObjectProvider<PlatformTransactionManagerCustomizer<?>> customizers) {
+		return new TransactionManagerCustomizers(
+				customizers.orderedStream().collect(Collectors.toList()));
 	}
 
 	@Configuration
 	@ConditionalOnSingleCandidate(PlatformTransactionManager.class)
 	public static class TransactionTemplateConfiguration {
 
-		private final PlatformTransactionManager transactionManager;
-
-		public TransactionTemplateConfiguration(
-				PlatformTransactionManager transactionManager) {
-			this.transactionManager = transactionManager;
-		}
-
 		@Bean
 		@ConditionalOnMissingBean
-		public TransactionTemplate transactionTemplate() {
-			return new TransactionTemplate(this.transactionManager);
+		public TransactionTemplate transactionTemplate(
+				PlatformTransactionManager transactionManager) {
+			return new TransactionTemplate(transactionManager);
 		}
 
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -158,8 +158,8 @@ public class TomcatServletWebServerFactory extends AbstractServletWebServerFacto
 	@Override
 	public WebServer getWebServer(ServletContextInitializer... initializers) {
 		Tomcat tomcat = new Tomcat();
-		File baseDir = (this.baseDirectory != null ? this.baseDirectory
-				: createTempDir("tomcat"));
+		File baseDir = (this.baseDirectory != null) ? this.baseDirectory
+				: createTempDir("tomcat");
 		tomcat.setBaseDir(baseDir.getAbsolutePath());
 		Connector connector = new Connector(this.protocol);
 		tomcat.getService().addConnector(connector);
@@ -190,12 +190,12 @@ public class TomcatServletWebServerFactory extends AbstractServletWebServerFacto
 		context.setName(getContextPath());
 		context.setDisplayName(getDisplayName());
 		context.setPath(getContextPath());
-		File docBase = (documentRoot != null ? documentRoot
-				: createTempDir("tomcat-docbase"));
+		File docBase = (documentRoot != null) ? documentRoot
+				: createTempDir("tomcat-docbase");
 		context.setDocBase(docBase.getAbsolutePath());
 		context.addLifecycleListener(new FixContextListener());
 		context.setParentClassLoader(
-				this.resourceLoader != null ? this.resourceLoader.getClassLoader()
+				(this.resourceLoader != null) ? this.resourceLoader.getClassLoader()
 						: ClassUtils.getDefaultClassLoader());
 		resetDefaultLocaleMapping(context);
 		addLocaleMappings(context);
@@ -283,7 +283,7 @@ public class TomcatServletWebServerFactory extends AbstractServletWebServerFacto
 
 	// Needs to be protected so it can be used by subclasses
 	protected void customizeConnector(Connector connector) {
-		int port = (getPort() >= 0 ? getPort() : 0);
+		int port = (getPort() >= 0) ? getPort() : 0;
 		connector.setPort(port);
 		if (StringUtils.hasText(this.getServerHeader())) {
 			connector.setAttribute("server", this.getServerHeader());
@@ -329,8 +329,9 @@ public class TomcatServletWebServerFactory extends AbstractServletWebServerFacto
 			ServletContextInitializer[] initializers) {
 		TomcatStarter starter = new TomcatStarter(initializers);
 		if (context instanceof TomcatEmbeddedContext) {
-			// Should be true
-			((TomcatEmbeddedContext) context).setStarter(starter);
+			TomcatEmbeddedContext embeddedContext = (TomcatEmbeddedContext) context;
+			embeddedContext.setStarter(starter);
+			embeddedContext.setFailCtxIfServletStartFails(true);
 		}
 		context.addServletContainerInitializer(starter, NO_CLASSES);
 		for (LifecycleListener lifecycleListener : this.contextLifecycleListeners) {
@@ -346,6 +347,7 @@ public class TomcatServletWebServerFactory extends AbstractServletWebServerFacto
 			context.addMimeMapping(mapping.getExtension(), mapping.getMimeType());
 		}
 		configureSession(context);
+		new DisableReferenceClearingContextCustomizer().customize(context);
 		for (TomcatContextCustomizer customizer : this.tomcatContextCustomizers) {
 			customizer.customize(context);
 		}

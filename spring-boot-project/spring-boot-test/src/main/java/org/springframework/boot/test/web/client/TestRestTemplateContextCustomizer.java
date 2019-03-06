@@ -62,7 +62,7 @@ class TestRestTemplateContextCustomizer implements ContextCustomizer {
 	private void registerTestRestTemplate(ConfigurableApplicationContext context) {
 		ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
 		if (beanFactory instanceof BeanDefinitionRegistry) {
-			registerTestRestTemplate((BeanDefinitionRegistry) context);
+			registerTestRestTemplate((BeanDefinitionRegistry) beanFactory);
 		}
 	}
 
@@ -75,16 +75,16 @@ class TestRestTemplateContextCustomizer implements ContextCustomizer {
 	}
 
 	@Override
-	public int hashCode() {
-		return getClass().hashCode();
-	}
-
-	@Override
 	public boolean equals(Object obj) {
 		if (obj == null || obj.getClass() != getClass()) {
 			return false;
 		}
 		return true;
+	}
+
+	@Override
+	public int hashCode() {
+		return getClass().hashCode();
 	}
 
 	/**

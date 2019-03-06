@@ -101,8 +101,7 @@ public class UndertowWebServer implements WebServer {
 				}
 				this.undertow.start();
 				this.started = true;
-				UndertowWebServer.logger
-						.info("Undertow started on port(s) " + getPortsDescription());
+				logger.info("Undertow started on port(s) " + getPortsDescription());
 			}
 			catch (Exception ex) {
 				try {
@@ -185,7 +184,7 @@ public class UndertowWebServer implements WebServer {
 		SocketAddress socketAddress = channel.getLocalAddress();
 		if (socketAddress instanceof InetSocketAddress) {
 			Field sslField = ReflectionUtils.findField(channel.getClass(), "ssl");
-			String protocol = (sslField != null ? "https" : "http");
+			String protocol = (sslField != null) ? "https" : "http";
 			return new UndertowWebServer.Port(
 					((InetSocketAddress) socketAddress).getPort(), protocol);
 		}
@@ -269,16 +268,6 @@ public class UndertowWebServer implements WebServer {
 		}
 
 		@Override
-		public String toString() {
-			return this.number + " (" + this.protocol + ")";
-		}
-
-		@Override
-		public int hashCode() {
-			return this.number;
-		}
-
-		@Override
 		public boolean equals(Object obj) {
 			if (this == obj) {
 				return true;
@@ -294,6 +283,16 @@ public class UndertowWebServer implements WebServer {
 				return false;
 			}
 			return true;
+		}
+
+		@Override
+		public int hashCode() {
+			return this.number;
+		}
+
+		@Override
+		public String toString() {
+			return this.number + " (" + this.protocol + ")";
 		}
 
 	}

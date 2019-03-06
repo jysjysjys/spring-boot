@@ -78,9 +78,19 @@ public abstract class AbstractRunMojo extends AbstractDependencyFilterMojo {
 	 * Path to agent jar. NOTE: the use of agents means that processes will be started by
 	 * forking a new JVM.
 	 * @since 1.0
+	 * @deprecated since version 2.2. Use agents instead.
 	 */
+	@Deprecated
 	@Parameter(property = "spring-boot.run.agent")
 	private File[] agent;
+
+	/**
+	 * Path to agent jars. NOTE: the use of agents means that processes will be started by
+	 * forking a new JVM.
+	 * @since 2.2
+	 */
+	@Parameter(property = "spring-boot.run.agents")
+	private File[] agents;
 
 	/**
 	 * Flag to say that the agent requires -noverify.
@@ -218,7 +228,8 @@ public abstract class AbstractRunMojo extends AbstractDependencyFilterMojo {
 	}
 
 	private boolean hasAgent() {
-		return (this.agent != null && this.agent.length > 0);
+		File[] configuredAgents = determineAgents();
+		return (configuredAgents != null && configuredAgents.length > 0);
 	}
 
 	private boolean hasJvmArgs() {
@@ -360,17 +371,22 @@ public abstract class AbstractRunMojo extends AbstractDependencyFilterMojo {
 	}
 
 	private void addAgents(List<String> args) {
-		if (this.agent != null) {
+		File[] configuredAgents = determineAgents();
+		if (configuredAgents != null) {
 			if (getLog().isInfoEnabled()) {
-				getLog().info("Attaching agents: " + Arrays.asList(this.agent));
+				getLog().info("Attaching agents: " + Arrays.asList(configuredAgents));
 			}
-			for (File agent : this.agent) {
+			for (File agent : configuredAgents) {
 				args.add("-javaagent:" + agent);
 			}
 		}
 		if (this.noverify) {
 			args.add("-noverify");
 		}
+	}
+
+	private File[] determineAgents() {
+		return (this.agents != null) ? this.agents : this.agent;
 	}
 
 	private void addActiveProfileArgument(RunArguments arguments) {
@@ -391,9 +407,10 @@ public abstract class AbstractRunMojo extends AbstractDependencyFilterMojo {
 		try {
 			StringBuilder classpath = new StringBuilder();
 			for (URL ele : getClassPathUrls()) {
-				classpath = classpath
-						.append((classpath.length() > 0 ? File.pathSeparator : "")
-								+ new File(ele.toURI()));
+				if (classpath.length() > 0) {
+					classpath.append(File.pathSeparator);
+				}
+				classpath.append(new File(ele.toURI()));
 			}
 			if (getLog().isDebugEnabled()) {
 				getLog().debug("Classpath for forked process: " + classpath);
@@ -511,7 +528,7 @@ public abstract class AbstractRunMojo extends AbstractDependencyFilterMojo {
 		public void uncaughtException(Thread thread, Throwable ex) {
 			if (!(ex instanceof ThreadDeath)) {
 				synchronized (this.monitor) {
-					this.exception = (this.exception != null ? this.exception : ex);
+					this.exception = (this.exception != null) ? this.exception : ex;
 				}
 				getLog().warn(ex);
 			}
@@ -541,7 +558,7 @@ public abstract class AbstractRunMojo extends AbstractDependencyFilterMojo {
 
 		LaunchRunner(String startClassName, String... args) {
 			this.startClassName = startClassName;
-			this.args = (args != null ? args : new String[] {});
+			this.args = (args != null) ? args : new String[] {};
 		}
 
 		@Override

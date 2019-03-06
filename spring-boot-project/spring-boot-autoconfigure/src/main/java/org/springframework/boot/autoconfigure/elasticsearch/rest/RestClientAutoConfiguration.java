@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,6 @@
  */
 
 package org.springframework.boot.autoconfigure.elasticsearch.rest;
-
-import java.util.Collections;
-import java.util.List;
 
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -49,17 +46,6 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties(RestClientProperties.class)
 public class RestClientAutoConfiguration {
 
-	private final RestClientProperties properties;
-
-	private final List<RestClientBuilderCustomizer> builderCustomizers;
-
-	public RestClientAutoConfiguration(RestClientProperties properties,
-			ObjectProvider<List<RestClientBuilderCustomizer>> builderCustomizers) {
-		this.properties = properties;
-		this.builderCustomizers = builderCustomizers
-				.getIfAvailable(Collections::emptyList);
-	}
-
 	@Bean
 	@ConditionalOnMissingBean
 	public RestClient restClient(RestClientBuilder builder) {
@@ -68,20 +54,22 @@ public class RestClientAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	public RestClientBuilder restClientBuilder() {
-		HttpHost[] hosts = this.properties.getUris().stream().map(HttpHost::create)
+	public RestClientBuilder restClientBuilder(RestClientProperties properties,
+			ObjectProvider<RestClientBuilderCustomizer> builderCustomizers) {
+		HttpHost[] hosts = properties.getUris().stream().map(HttpHost::create)
 				.toArray(HttpHost[]::new);
 		RestClientBuilder builder = RestClient.builder(hosts);
 		PropertyMapper map = PropertyMapper.get();
-		map.from(this.properties::getUsername).whenHasText().to((username) -> {
+		map.from(properties::getUsername).whenHasText().to((username) -> {
 			CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
 			Credentials credentials = new UsernamePasswordCredentials(
-					this.properties.getUsername(), this.properties.getPassword());
+					properties.getUsername(), properties.getPassword());
 			credentialsProvider.setCredentials(AuthScope.ANY, credentials);
 			builder.setHttpClientConfigCallback((httpClientBuilder) -> httpClientBuilder
 					.setDefaultCredentialsProvider(credentialsProvider));
 		});
-		this.builderCustomizers.forEach((customizer) -> customizer.customize(builder));
+		builderCustomizers.orderedStream()
+				.forEach((customizer) -> customizer.customize(builder));
 		return builder;
 	}
 

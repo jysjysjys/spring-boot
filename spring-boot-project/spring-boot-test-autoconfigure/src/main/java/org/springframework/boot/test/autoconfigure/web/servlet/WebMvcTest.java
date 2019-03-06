@@ -35,6 +35,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan.Filter;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.annotation.AliasFor;
+import org.springframework.core.env.Environment;
 import org.springframework.test.context.BootstrapWith;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
@@ -65,6 +66,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * {@link AutoConfigureMockMvc @AutoConfigureMockMvc} rather than this annotation.
  *
  * @author Phillip Webb
+ * @author Artsiom Yudovin
  * @see AutoConfigureWebMvc
  * @see AutoConfigureMockMvc
  * @see AutoConfigureCache
@@ -83,6 +85,14 @@ import org.springframework.test.web.servlet.MockMvc;
 @AutoConfigureMockMvc
 @ImportAutoConfiguration
 public @interface WebMvcTest {
+
+	/**
+	 * Properties in form {@literal key=value} that should be added to the Spring
+	 * {@link Environment} before the test runs.
+	 * @return the properties to add
+	 * @since 2.1.0
+	 */
+	String[] properties() default {};
 
 	/**
 	 * Specifies the controllers to test. This is an alias of {@link #controllers()} which
@@ -128,14 +138,6 @@ public @interface WebMvcTest {
 	 * @return exclude filters to apply
 	 */
 	Filter[] excludeFilters() default {};
-
-	/**
-	 * If Spring Security's {@link MockMvc} support should be auto-configured when it is
-	 * on the classpath. Defaults to {@code true}.
-	 * @return if Spring Security's MockMvc support is auto-configured
-	 */
-	@AliasFor(annotation = AutoConfigureMockMvc.class)
-	boolean secure() default true;
 
 	/**
 	 * Auto-configuration exclusions that should be applied for this test.

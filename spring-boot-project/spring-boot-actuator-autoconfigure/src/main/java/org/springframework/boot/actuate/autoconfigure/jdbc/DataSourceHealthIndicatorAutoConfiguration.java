@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.springframework.boot.actuate.autoconfigure.jdbc;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import javax.sql.DataSource;
 
@@ -65,17 +66,26 @@ public class DataSourceHealthIndicatorAutoConfiguration extends
 		CompositeHealthIndicatorConfiguration<DataSourceHealthIndicator, DataSource>
 		implements InitializingBean {
 
-	private final Map<String, DataSource> dataSources;
-
 	private final Collection<DataSourcePoolMetadataProvider> metadataProviders;
 
 	private DataSourcePoolMetadataProvider poolMetadataProvider;
 
-	public DataSourceHealthIndicatorAutoConfiguration(
-			ObjectProvider<Map<String, DataSource>> dataSources,
-			ObjectProvider<Collection<DataSourcePoolMetadataProvider>> metadataProviders) {
-		this.dataSources = filterDataSources(dataSources.getIfAvailable());
-		this.metadataProviders = metadataProviders.getIfAvailable();
+	public DataSourceHealthIndicatorAutoConfiguration(Map<String, DataSource> dataSources,
+			ObjectProvider<DataSourcePoolMetadataProvider> metadataProviders) {
+		this.metadataProviders = metadataProviders.orderedStream()
+				.collect(Collectors.toList());
+	}
+
+	@Override
+	public void afterPropertiesSet() throws Exception {
+		this.poolMetadataProvider = new CompositeDataSourcePoolMetadataProvider(
+				this.metadataProviders);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(name = "dbHealthIndicator")
+	public HealthIndicator dbHealthIndicator(Map<String, DataSource> dataSources) {
+		return createHealthIndicator(filterDataSources(dataSources));
 	}
 
 	private Map<String, DataSource> filterDataSources(
@@ -93,18 +103,6 @@ public class DataSourceHealthIndicatorAutoConfiguration extends
 	}
 
 	@Override
-	public void afterPropertiesSet() throws Exception {
-		this.poolMetadataProvider = new CompositeDataSourcePoolMetadataProvider(
-				this.metadataProviders);
-	}
-
-	@Bean
-	@ConditionalOnMissingBean(name = "dbHealthIndicator")
-	public HealthIndicator dbHealthIndicator() {
-		return createHealthIndicator(this.dataSources);
-	}
-
-	@Override
 	protected DataSourceHealthIndicator createHealthIndicator(DataSource source) {
 		return new DataSourceHealthIndicator(source, getValidationQuery(source));
 	}
@@ -112,7 +110,7 @@ public class DataSourceHealthIndicatorAutoConfiguration extends
 	private String getValidationQuery(DataSource source) {
 		DataSourcePoolMetadata poolMetadata = this.poolMetadataProvider
 				.getDataSourcePoolMetadata(source);
-		return (poolMetadata != null ? poolMetadata.getValidationQuery() : null);
+		return (poolMetadata != null) ? poolMetadata.getValidationQuery() : null;
 	}
 
 }

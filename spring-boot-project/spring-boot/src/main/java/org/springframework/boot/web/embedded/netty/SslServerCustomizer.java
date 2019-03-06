@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,10 +26,12 @@ import javax.net.ssl.TrustManagerFactory;
 import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
 import reactor.netty.http.server.HttpServer;
-import reactor.netty.tcp.SslProvider.DefaultConfigurationType;
+import reactor.netty.tcp.SslProvider;
 
+import org.springframework.boot.web.server.Http2;
 import org.springframework.boot.web.server.Ssl;
 import org.springframework.boot.web.server.SslStoreProvider;
+import org.springframework.boot.web.server.WebServerException;
 import org.springframework.util.ResourceUtils;
 
 /**
@@ -37,24 +39,32 @@ import org.springframework.util.ResourceUtils;
  * instance.
  *
  * @author Brian Clozel
+ * @author Raheela Aslam
  */
 public class SslServerCustomizer implements NettyServerCustomizer {
 
 	private final Ssl ssl;
 
+	private final Http2 http2;
+
 	private final SslStoreProvider sslStoreProvider;
 
-	public SslServerCustomizer(Ssl ssl, SslStoreProvider sslStoreProvider) {
+	public SslServerCustomizer(Ssl ssl, Http2 http2, SslStoreProvider sslStoreProvider) {
 		this.ssl = ssl;
+		this.http2 = http2;
 		this.sslStoreProvider = sslStoreProvider;
 	}
 
 	@Override
 	public HttpServer apply(HttpServer server) {
 		try {
-			return server
-					.secure((contextSpec) -> contextSpec.sslContext(getContextBuilder())
-							.defaultConfiguration(DefaultConfigurationType.NONE));
+			return server.secure((contextSpec) -> {
+				SslProvider.DefaultConfigurationSpec spec = contextSpec
+						.sslContext(getContextBuilder());
+				if (this.http2 != null && this.http2.isEnabled()) {
+					spec.defaultConfiguration(SslProvider.DefaultConfigurationType.H2);
+				}
+			});
 		}
 		catch (Exception ex) {
 			throw new IllegalStateException(ex);
@@ -86,8 +96,8 @@ public class SslServerCustomizer implements NettyServerCustomizer {
 			KeyStore keyStore = getKeyStore(ssl, sslStoreProvider);
 			KeyManagerFactory keyManagerFactory = KeyManagerFactory
 					.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-			char[] keyPassword = (ssl.getKeyPassword() != null
-					? ssl.getKeyPassword().toCharArray() : null);
+			char[] keyPassword = (ssl.getKeyPassword() != null)
+					? ssl.getKeyPassword().toCharArray() : null;
 			if (keyPassword == null && ssl.getKeyStorePassword() != null) {
 				keyPassword = ssl.getKeyStorePassword().toCharArray();
 			}
@@ -104,8 +114,8 @@ public class SslServerCustomizer implements NettyServerCustomizer {
 		if (sslStoreProvider != null) {
 			return sslStoreProvider.getKeyStore();
 		}
-		return loadKeyStore(ssl.getKeyStoreType(), ssl.getKeyStore(),
-				ssl.getKeyStorePassword());
+		return loadKeyStore(ssl.getKeyStoreType(), ssl.getKeyStoreProvider(),
+				ssl.getKeyStore(), ssl.getKeyStorePassword());
 	}
 
 	protected TrustManagerFactory getTrustManagerFactory(Ssl ssl,
@@ -127,20 +137,40 @@ public class SslServerCustomizer implements NettyServerCustomizer {
 		if (sslStoreProvider != null) {
 			return sslStoreProvider.getTrustStore();
 		}
-		return loadKeyStore(ssl.getTrustStoreType(), ssl.getTrustStore(),
-				ssl.getTrustStorePassword());
+		return loadTrustStore(ssl.getTrustStoreType(), ssl.getTrustStoreProvider(),
+				ssl.getTrustStore(), ssl.getTrustStorePassword());
 	}
 
-	private KeyStore loadKeyStore(String type, String resource, String password)
-			throws Exception {
-		type = (type != null ? type : "JKS");
+	private KeyStore loadKeyStore(String type, String provider, String resource,
+			String password) throws Exception {
+
+		return loadStore(type, provider, resource, password);
+	}
+
+	private KeyStore loadTrustStore(String type, String provider, String resource,
+			String password) throws Exception {
 		if (resource == null) {
 			return null;
 		}
-		KeyStore store = KeyStore.getInstance(type);
-		URL url = ResourceUtils.getURL(resource);
-		store.load(url.openStream(), password != null ? password.toCharArray() : null);
-		return store;
+		return loadStore(type, provider, resource, password);
+	}
+
+	private KeyStore loadStore(String type, String provider, String resource,
+			String password) throws Exception {
+		type = (type != null) ? type : "JKS";
+		KeyStore store = (provider != null) ? KeyStore.getInstance(type, provider)
+				: KeyStore.getInstance(type);
+		try {
+			URL url = ResourceUtils.getURL(resource);
+			store.load(url.openStream(),
+					(password != null) ? password.toCharArray() : null);
+			return store;
+		}
+		catch (Exception ex) {
+			throw new WebServerException("Could not load key store '" + resource + "'",
+					ex);
+		}
+
 	}
 
 }

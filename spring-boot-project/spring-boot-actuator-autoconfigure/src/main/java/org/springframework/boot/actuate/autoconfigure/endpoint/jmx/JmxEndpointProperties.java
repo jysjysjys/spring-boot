@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,11 +41,6 @@ public class JmxEndpointProperties {
 	private String domain = "org.springframework.boot";
 
 	/**
-	 * Whether to ensure that ObjectNames are modified in case of conflict.
-	 */
-	private boolean uniqueNames = false;
-
-	/**
 	 * Additional static properties to append to all ObjectNames of MBeans representing
 	 * Endpoints.
 	 */
@@ -68,14 +63,6 @@ public class JmxEndpointProperties {
 
 	public void setDomain(String domain) {
 		this.domain = domain;
-	}
-
-	public boolean isUniqueNames() {
-		return this.uniqueNames;
-	}
-
-	public void setUniqueNames(boolean uniqueNames) {
-		this.uniqueNames = uniqueNames;
 	}
 
 	public Properties getStaticNames() {

@@ -19,6 +19,7 @@ package org.springframework.boot.actuate.autoconfigure.metrics;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import io.micrometer.core.instrument.Meter;
@@ -39,11 +40,11 @@ import org.springframework.util.StringUtils;
  * @author Jon Schneider
  * @author Phillip Webb
  * @author Stephane Nicoll
+ * @author Artsiom Yudovin
+ * @author Alexander Abramov
  * @since 2.0.0
  */
 public class PropertiesMeterFilter implements MeterFilter {
-
-	private static final ServiceLevelAgreementBoundary[] EMPTY_SLA = {};
 
 	private final MetricsProperties properties;
 
@@ -68,8 +69,8 @@ public class PropertiesMeterFilter implements MeterFilter {
 
 	@Override
 	public MeterFilterReply accept(Meter.Id id) {
-		boolean enabled = lookup(this.properties.getEnable(), id, true);
-		return (enabled ? MeterFilterReply.NEUTRAL : MeterFilterReply.DENY);
+		boolean enabled = lookupWithFallbackToAll(this.properties.getEnable(), id, true);
+		return enabled ? MeterFilterReply.NEUTRAL : MeterFilterReply.DENY;
 	}
 
 	@Override
@@ -82,24 +83,47 @@ public class PropertiesMeterFilter implements MeterFilter {
 			DistributionStatisticConfig config) {
 		Distribution distribution = this.properties.getDistribution();
 		return DistributionStatisticConfig.builder()
-				.percentilesHistogram(
-						lookup(distribution.getPercentilesHistogram(), id, null))
-				.percentiles(lookup(distribution.getPercentiles(), id, null))
+				.percentilesHistogram(lookupWithFallbackToAll(
+						distribution.getPercentilesHistogram(), id, null))
+				.percentiles(
+						lookupWithFallbackToAll(distribution.getPercentiles(), id, null))
 				.sla(convertSla(id.getType(), lookup(distribution.getSla(), id, null)))
+				.minimumExpectedValue(convertMeterValue(id.getType(),
+						lookup(distribution.getMinimumExpectedValue(), id, null)))
+				.maximumExpectedValue(convertMeterValue(id.getType(),
+						lookup(distribution.getMaximumExpectedValue(), id, null)))
 				.build().merge(config);
 	}
 
 	private long[] convertSla(Meter.Type meterType, ServiceLevelAgreementBoundary[] sla) {
-		long[] converted = Arrays.stream(sla != null ? sla : EMPTY_SLA)
+		if (sla == null) {
+			return null;
+		}
+		long[] converted = Arrays.stream(sla)
 				.map((candidate) -> candidate.getValue(meterType))
 				.filter(Objects::nonNull).mapToLong(Long::longValue).toArray();
-		return (converted.length != 0 ? converted : null);
+		return (converted.length != 0) ? converted : null;
+	}
+
+	private Long convertMeterValue(Meter.Type meterType, String value) {
+		return (value != null) ? MeterValue.valueOf(value).getValue(meterType) : null;
 	}
 
 	private <T> T lookup(Map<String, T> values, Id id, T defaultValue) {
 		if (values.isEmpty()) {
 			return defaultValue;
 		}
+		return doLookup(values, id, () -> defaultValue);
+	}
+
+	private <T> T lookupWithFallbackToAll(Map<String, T> values, Id id, T defaultValue) {
+		if (values.isEmpty()) {
+			return defaultValue;
+		}
+		return doLookup(values, id, () -> values.getOrDefault("all", defaultValue));
+	}
+
+	private <T> T doLookup(Map<String, T> values, Id id, Supplier<T> defaultValue) {
 		String name = id.getName();
 		while (StringUtils.hasLength(name)) {
 			T result = values.get(name);
@@ -107,9 +131,10 @@ public class PropertiesMeterFilter implements MeterFilter {
 				return result;
 			}
 			int lastDot = name.lastIndexOf('.');
-			name = (lastDot != -1 ? name.substring(0, lastDot) : "");
+			name = (lastDot != -1) ? name.substring(0, lastDot) : "";
 		}
-		return values.getOrDefault("all", defaultValue);
+
+		return defaultValue.get();
 	}
 
 }

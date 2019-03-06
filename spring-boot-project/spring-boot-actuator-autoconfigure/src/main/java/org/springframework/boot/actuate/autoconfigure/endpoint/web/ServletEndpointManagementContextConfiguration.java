@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2018 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,6 @@
 
 package org.springframework.boot.actuate.autoconfigure.endpoint.web;
 
-import java.util.Set;
-import java.util.stream.Collectors;
-
 import org.glassfish.jersey.server.ResourceConfig;
 
 import org.springframework.boot.actuate.autoconfigure.endpoint.ExposeExcludePropertyEndpointFilter;
@@ -30,11 +27,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication.Type;
-import org.springframework.boot.autoconfigure.web.servlet.DispatcherServletPathProvider;
-import org.springframework.context.ApplicationContext;
+import org.springframework.boot.autoconfigure.web.servlet.DispatcherServletPath;
+import org.springframework.boot.autoconfigure.web.servlet.JerseyApplicationPath;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.DispatcherServlet;
 
 /**
@@ -59,38 +55,16 @@ public class ServletEndpointManagementContextConfiguration {
 
 	@Configuration
 	@ConditionalOnClass(DispatcherServlet.class)
-	public class WebMvcServletEndpointManagementContextConfiguration {
-
-		private final ApplicationContext context;
-
-		public WebMvcServletEndpointManagementContextConfiguration(
-				ApplicationContext context) {
-			this.context = context;
-		}
+	public static class WebMvcServletEndpointManagementContextConfiguration {
 
 		@Bean
 		public ServletEndpointRegistrar servletEndpointRegistrar(
 				WebEndpointProperties properties,
-				ServletEndpointsSupplier servletEndpointsSupplier) {
-			DispatcherServletPathProvider servletPathProvider = this.context
-					.getBean(DispatcherServletPathProvider.class);
-			Set<String> cleanedPaths = getServletPaths(properties, servletPathProvider);
-			return new ServletEndpointRegistrar(cleanedPaths,
+				ServletEndpointsSupplier servletEndpointsSupplier,
+				DispatcherServletPath dispatcherServletPath) {
+			return new ServletEndpointRegistrar(
+					dispatcherServletPath.getRelativePath(properties.getBasePath()),
 					servletEndpointsSupplier.getEndpoints());
-		}
-
-		private Set<String> getServletPaths(WebEndpointProperties properties,
-				DispatcherServletPathProvider servletPathProvider) {
-			return servletPathProvider.getServletPaths().stream()
-					.map((p) -> cleanServletPath(p) + properties.getBasePath())
-					.collect(Collectors.toSet());
-		}
-
-		private String cleanServletPath(String servletPath) {
-			if (StringUtils.hasText(servletPath) && servletPath.endsWith("/")) {
-				return servletPath.substring(0, servletPath.length() - 1);
-			}
-			return servletPath;
 		}
 
 	}
@@ -98,13 +72,15 @@ public class ServletEndpointManagementContextConfiguration {
 	@Configuration
 	@ConditionalOnClass(ResourceConfig.class)
 	@ConditionalOnMissingClass("org.springframework.web.servlet.DispatcherServlet")
-	public class JerseyServletEndpointManagementContextConfiguration {
+	public static class JerseyServletEndpointManagementContextConfiguration {
 
 		@Bean
 		public ServletEndpointRegistrar servletEndpointRegistrar(
 				WebEndpointProperties properties,
-				ServletEndpointsSupplier servletEndpointsSupplier) {
-			return new ServletEndpointRegistrar(properties.getBasePath(),
+				ServletEndpointsSupplier servletEndpointsSupplier,
+				JerseyApplicationPath jerseyApplicationPath) {
+			return new ServletEndpointRegistrar(
+					jerseyApplicationPath.getRelativePath(properties.getBasePath()),
 					servletEndpointsSupplier.getEndpoints());
 		}
 

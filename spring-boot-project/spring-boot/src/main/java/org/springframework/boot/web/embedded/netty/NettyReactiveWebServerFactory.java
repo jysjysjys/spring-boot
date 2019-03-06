@@ -23,11 +23,14 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+import reactor.netty.http.HttpProtocol;
 import reactor.netty.http.server.HttpServer;
+import reactor.netty.resources.LoopResources;
 
 import org.springframework.boot.web.reactive.server.AbstractReactiveWebServerFactory;
 import org.springframework.boot.web.reactive.server.ReactiveWebServerFactory;
 import org.springframework.boot.web.server.WebServer;
+import org.springframework.http.client.reactive.ReactorResourceFactory;
 import org.springframework.http.server.reactive.HttpHandler;
 import org.springframework.http.server.reactive.ReactorHttpHandlerAdapter;
 import org.springframework.util.Assert;
@@ -45,6 +48,8 @@ public class NettyReactiveWebServerFactory extends AbstractReactiveWebServerFact
 	private Duration lifecycleTimeout;
 
 	private boolean useForwardHeaders;
+
+	private ReactorResourceFactory resourceFactory;
 
 	public NettyReactiveWebServerFactory() {
 	}
@@ -108,12 +113,31 @@ public class NettyReactiveWebServerFactory extends AbstractReactiveWebServerFact
 		this.useForwardHeaders = useForwardHeaders;
 	}
 
+	/**
+	 * Set the {@link ReactorResourceFactory} to get the shared resources from.
+	 * @param resourceFactory the server resources
+	 * @since 2.1.0
+	 */
+	public void setResourceFactory(ReactorResourceFactory resourceFactory) {
+		this.resourceFactory = resourceFactory;
+	}
+
 	private HttpServer createHttpServer() {
-		HttpServer server = HttpServer.create().tcpConfiguration(
-				(tcpServer) -> tcpServer.addressSupplier(() -> getListenAddress()));
+		HttpServer server = HttpServer.create();
+		if (this.resourceFactory != null) {
+			LoopResources resources = this.resourceFactory.getLoopResources();
+			Assert.notNull(resources,
+					"No LoopResources: is ReactorResourceFactory not initialized yet?");
+			server = server.tcpConfiguration((tcpServer) -> tcpServer.runOn(resources)
+					.addressSupplier(this::getListenAddress));
+		}
+		else {
+			server = server.tcpConfiguration(
+					(tcpServer) -> tcpServer.addressSupplier(this::getListenAddress));
+		}
 		if (getSsl() != null && getSsl().isEnabled()) {
 			SslServerCustomizer sslServerCustomizer = new SslServerCustomizer(getSsl(),
-					getSslStoreProvider());
+					getHttp2(), getSslStoreProvider());
 			server = sslServerCustomizer.apply(server);
 		}
 		if (getCompression() != null && getCompression().getEnabled()) {
@@ -121,8 +145,20 @@ public class NettyReactiveWebServerFactory extends AbstractReactiveWebServerFact
 					getCompression());
 			server = compressionCustomizer.apply(server);
 		}
-		server = (this.useForwardHeaders ? server.forwarded() : server.noForwarded());
+		server = server.protocol(listProtocols()).forwarded(this.useForwardHeaders);
 		return applyCustomizers(server);
+	}
+
+	private HttpProtocol[] listProtocols() {
+		if (getHttp2() != null && getHttp2().isEnabled()) {
+			if (getSsl() != null && getSsl().isEnabled()) {
+				return new HttpProtocol[] { HttpProtocol.H2, HttpProtocol.HTTP11 };
+			}
+			else {
+				return new HttpProtocol[] { HttpProtocol.H2C, HttpProtocol.HTTP11 };
+			}
+		}
+		return new HttpProtocol[] { HttpProtocol.HTTP11 };
 	}
 
 	private InetSocketAddress getListenAddress() {
