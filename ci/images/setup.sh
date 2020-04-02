@@ -21,14 +21,16 @@ mkdir -p /opt/openjdk
 cd /opt/openjdk
 curl -L ${JDK_URL} | tar zx --strip-components=1
 test -f /opt/openjdk/bin/java
+test -f /opt/openjdk/bin/javac
 
 
 ###########################################################
 # DOCKER
 ###########################################################
+DOCKER_URL=$( ./get-docker-url.sh )
 
 cd /
-curl -L https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz | tar zx
+curl -L ${DOCKER_URL} | tar zx
 mv /docker/* /bin/
 chmod +x /bin/docker*
 
@@ -37,3 +39,9 @@ curl -L https://github.com/progrium/entrykit/releases/download/v${ENTRYKIT_VERSI
 chmod +x entrykit && \
 mv entrykit /bin/entrykit && \
 entrykit --symlink
+
+###########################################################
+# GRADLE ENTERPRISE
+###########################################################
+mkdir ~/.gradle
+echo 'systemProp.user.name=concourse' > ~/.gradle/gradle.properties
